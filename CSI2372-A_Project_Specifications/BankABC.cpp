@@ -22,6 +22,7 @@
 #include <iomanip>
 
 #include "BankABC.h"
+#pragma warning(suppress : 4996)
 
 using namespace std;
 
@@ -44,6 +45,7 @@ inline BankAccount::BankAccount(long id, int newType,
                                     updateDate(newDate), balance(newBalance)
 {
      clientName = new char[strlen(name) + 1];
+#pragma warning(suppress : 4996)		//was an express error on VS
      strcpy(clientName, name);
 }
 
@@ -72,7 +74,8 @@ inline void BankAccount::setClientName(char * name)
           delete [] clientName;
      }
      clientName = new char[strlen(name) + 1];
-     strcpy(clientName, name);
+#pragma warning(suppress : 4996)  //was an express error for strcpy
+	 strcpy(clientName, name);
 }
 
 inline void BankAccount::setUpdateDate(long newDate)
@@ -149,7 +152,8 @@ inline void LoanAccount::setRate(double newRate)
 
 void LoanAccount::print()
 {
-    BankAccount::print();
+	
+	BankAccount::print();
     cout.setf(ios::fixed);
     cout.precision(2);
     cout << "\t" << nbyears << "\t\t" << rate << endl;
@@ -205,7 +209,7 @@ inline void Transaction::setAmount(double amountTr)
 void sortAccounts(BankAccount ** list)
 {
     BankAccount * temp = nullptr;
-    for(int i=0;i<K_SizeMax;i++){
+    for(int i=0;i<K_SizeMax;i++){				//loop for sorting the account ID 
         for(int j=0;j<K_SizeMax-1;j++){
             if(list[j+1]->getAccountId()==0){
                 break;
@@ -218,7 +222,7 @@ void sortAccounts(BankAccount ** list)
     }
     string name1;
     string name2;
-    for(int i=0;i<K_SizeMax;i++){
+    for(int i=0;i<K_SizeMax;i++){				//loop for sorting the account type
         for(int j=0;j<K_SizeMax-1;j++){
             if(list[j+1]->getAccountId()==0){
                 break;
@@ -230,15 +234,9 @@ void sortAccounts(BankAccount ** list)
                     list[j] = list[j+1];
                     list[j+1] = temp;
                 }
-
             }
         }
     }
-
-
-
-
-
 }
 
 //******************************************************************
@@ -276,34 +274,20 @@ BankAccount ** readAccounts()
 
     while (inputFile && (counter < K_SizeMax - 1)){
         // YOU HAVE TO DO SOMETHING FROM HERE !!!
-    switch (TypeRead){
-        case 1:pAccount[0] = new BankAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead);break;
-        case 2:pAccount[0] = new BankAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead);break;
-        case 3:pAccount[0] = new DepositAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead,nbyearRead);break;
-        case 4:pAccount[0] = new LoanAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead,nbyearRead,RateRead);break;
-        default:pAccount[0] = new BankAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead);break;
-    }
-    //pAccount[0] = new BankAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead);
+		switch (TypeRead) {					//create account accordong to type
+			case 1:pAccount[0] = new BankAccount(accountRead, TypeRead, nameRead, dateRead, balanceRead); break;
+			case 2:pAccount[0] = new BankAccount(accountRead, TypeRead, nameRead, dateRead, balanceRead); break;
+			case 3:pAccount[0] = new DepositAccount(accountRead, TypeRead, nameRead, dateRead, balanceRead, nbyearRead); break;
+			case 4:
+				balanceRead = balanceRead + (balanceRead * RateRead * (nbyearRead / 36000.00));		//see instruction for how to calculate balance on loan upon creation
+				pAccount[0] = new LoanAccount(accountRead, TypeRead, nameRead, dateRead, balanceRead, nbyearRead, RateRead);
+				break;
+			default:
+				cout << "error during readind account " << accountRead;
+				break;
+		}
 
-
-
-    //pAccount[0] = new BankAccount(accountRead,TypeRead,nameRead,dateRead,balanceRead);
-
-
-    //cout<<"I'm Reading Client Line "<<counter<<endl;
-    //cout<<accountRead<<" "<<TypeRead<<" "<<dateRead<<" "<<balanceRead<<" "<<nbyearRead<<" "<<RateRead<<" "<<nameRead<<endl;
-    //pAccount[counter]->print();
-    //cout<<endl;
-    //listAccounts[counter]->print();
-    //cout<<endl;
-
-
-
-
-
-
-
-
+ 
         // UNTIL THIS POINT.
 
           inputFile >> accountRead >> TypeRead >> dateRead >> balanceRead >> nbyearRead >> RateRead;
@@ -417,16 +401,45 @@ void LoanAccount::executeTransaction(const Transaction trans)
 void updateAccounts(BankAccount ** listAccounts) {
      ifstream inputFile("transact.txt");	// Opening the input file
 
+	 if (!inputFile)            		// If the file is not found...
+	 {
+		 cout << "Transaction File not found !!!" << endl;
+		 return;
+	 }
 
+	 long accountRead, dateRead;
+	 int TypeRead, transCodeRead, counter = 0;
+	 double amountRead;
+	 bool validationTrans;
 
+	 inputFile >> accountRead >> TypeRead >> dateRead >> transCodeRead >> amountRead;
 
-
-
-
-
-
-
-
+	 int i;
+	 while (inputFile && (counter < K_SizeMax - 1)) {
+		 for (i = 0; i < K_SizeMax; i++)
+		 {
+			 if (listAccounts[i]->getAccountId() == 0) {			//stop because end of list so the account ID or type dont exist
+				 cout << " the transaction on " << accountRead << " of type " << TypeRead << " on date " << dateRead << " transaction code " << transCodeRead
+					 << " amount " << amountRead << " cannot be executed. account ID or type dont exist" << endl;
+				 break;
+			 }
+			 
+			 if (listAccounts[i]->getAccountId() == accountRead &&		//find the account and type
+				 listAccounts[i]->getType() == TypeRead) {
+				 Transaction trans(accountRead, TypeRead, dateRead, transCodeRead, amountRead);
+				 if (listAccounts[i]->validateTransaction(trans)) {
+					 listAccounts[i]->executeTransaction(trans);
+				 }
+				 else {
+					 cout << " the transaction on " << accountRead << " of type " << TypeRead << " on date " << dateRead << " transaction code " << transCodeRead 
+						 << " amount " << amountRead <<" cannot be executed. ILLEGAL TRANSACTION ON ACCOUNT TYPE"<< endl;
+				 }
+				 break;  //other account dont need to be checked
+			 }
+		 }
+		 inputFile >> accountRead >> TypeRead >> dateRead >> transCodeRead >> amountRead;		//preparing next entry
+		 counter++;
+	 }
 }
 
 //******************************************************************************
@@ -438,28 +451,20 @@ void updateAccounts(BankAccount ** listAccounts) {
 void displayAccounts(BankAccount ** listAccounts)
 {
     cout << endl << endl << endl;
-
-    Bool find[K_SizeMax];
-    for(int k = 0; k < K_SizeMax; k++) {find[k] = FALSE;}
-
     cout << "                       THE REPORT OF THE BANK ACCOUNTS OF CLIENTS" << endl;
     cout << "                       ------------------------------------------" << endl << endl;
 
     int i = 0;
     double total = 0;
     string currentClient;
-    //for(int j = 0;j<K_SizeMax;j++){
-    //}
-    //listAccounts[i]->
-
-
+    
     for(i = 0;i<K_SizeMax;i++){
-        if (listAccounts[i]->getAccountId()==0){
+        if (listAccounts[i]->getAccountId()==0){		//end of the list 
             break;
         }
         if (currentClient == listAccounts[i]->getClientName()){
 
-        }else{
+        }else{								//client has changed so balance has to be produce
             if(currentClient!=""){
                 cout<<"Total Balance = "<<total<<endl;
                 cout<<"-----------------------------------"<<endl;
@@ -487,12 +492,6 @@ void displayAccounts(BankAccount ** listAccounts)
         cout<<"-----------------------------------"<<endl;
         cout<<endl;
         total = 0;
-
-
-
-
-
-
 
 }
 
